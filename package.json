@@ -1,0 +1,74 @@
+{
+  "name": "terminal-ready",
+  "displayName": "Terminal Ready",
+  "description": "Per-terminal ready/idle status indicators for Claude Code",
+  "version": "0.1.0",
+  "publisher": "terminal-ready",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "enabledApiProposals": [
+    "terminalDataWriteEvent"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Terminal Ready",
+      "properties": {
+        "terminalReady.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable terminal ready indicators"
+        },
+        "terminalReady.mode": {
+          "type": "string",
+          "enum": [
+            "matched-only",
+            "all"
+          ],
+          "default": "matched-only",
+          "description": "Show indicators on all terminals or only matched profiles"
+        },
+        "terminalReady.icon": {
+          "type": "string",
+          "default": "terminal",
+          "description": "ThemeIcon name for terminal tabs"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "terminalReady.focusNextReady",
+        "title": "Terminal Ready: Focus Next Ready Terminal"
+      },
+      {
+        "command": "terminalReady.focusNextBlocked",
+        "title": "Terminal Ready: Focus Next Blocked Terminal"
+      },
+      {
+        "command": "terminalReady.showDebugInfo",
+        "title": "Terminal Ready: Show Debug Info"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.5.2",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  }
+}

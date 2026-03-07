@@ -4,6 +4,11 @@
   "description": "Per-terminal ready/idle status indicators for Claude Code",
   "version": "0.1.0",
   "publisher": "terminal-ready",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sramji/vscode-terminal-ready"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },

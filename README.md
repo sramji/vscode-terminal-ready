@@ -1,95 +1,116 @@
 # terminal-ready
 
-A VS Code extension that shows per-terminal ready/idle status indicators, so you can see at a glance which terminals need your attention.
+A VS Code extension that shows per-terminal status indicators for Claude Code, so you can see at a glance which terminals need your attention.
 
 ## Problem
 
-When running 3-6+ long-lived terminals in a single VS Code window (Claude Code agents, test runners, dev servers, REPLs), there's no way to tell which ones are waiting for input without clicking each tab. This creates polling overhead and cognitive load, especially in multi-agent coding workflows.
+When running 3-6+ Claude Code terminals in a single VS Code window, there's no way to tell which ones are waiting for input without clicking each tab. Claude Code has long silent thinking periods, multiple blocking states, and variable permission modes — all invisible at the tab level. This creates polling overhead and cognitive load, especially in multi-agent coding workflows.
 
-VS Code's built-in terminal tab icons only cover tasks (spinner, success/failure) — there is no generic "shell is idle / ready for input" signal.
+## How it works
 
-## What exists today
+The extension auto-detects Claude Code terminals and prefixes their names with status indicators:
 
-- **VS Code built-in**: Terminal tab status icons are tied to tasks and exit codes, not shell idle state. Settings like auto-replies and confirm-on-exit don't provide visual indicators.
-- **Existing extensions**: Sidebar terminals, tool-specific progress indicators, and Claude Code's status bar progress — none provide a per-terminal ready/idle badge across all terminals.
-- **Cursor / agent-native IDEs**: Cursor has agent/session status in chat panels but not per-terminal indicators. VS Code's experimental agent status indicator shows in-progress/unread badges at the session level, not per-terminal.
-- **Third-party agent IDEs**: Projects like PATAPIM use color-coded terminal grids (red = AI working, green = needs input) — the closest prior art to what we're building, but not VS Code extensions.
+| Indicator | State | Meaning |
+|-----------|-------|---------|
+| 🟢 | **Ready** | Claude finished, waiting for new input |
+| 🦀 | **Working** | Claude is actively processing your request |
+| 🟠 | **Blocked** | Claude needs your input to proceed (permission, question, confirmation) |
+| 🔵 | **Suspended** | Claude Code backgrounded (Ctrl+Z), valuable session parked |
+| ⚪ | **Exited** | Session ended |
 
-## Approach
+**Zero configuration.** Claude Code is auto-detected by its startup banner. Indicators are configurable per profile.
 
-### Terminal states (v1)
+### Detection
 
-| State | Meaning |
-|-------|---------|
-| **Running** | Process is actively producing output or a command is in progress |
-| **Ready** | Process is idle and prompt is visible; waiting for user input |
-| **Exited** | Shell or process has exited |
+State detection uses **window title (OSC 0) escape sequences** — the most reliable signal available. Claude Code sets its window title to reflect state:
 
-### Readiness detection
+- `✳ Claude Code` → Ready
+- `⠂ Claude Code` (braille spinner) → Working
+- Empty → Exited
 
-Detection is based on terminal output stream analysis (`onDidWriteTerminalData`), not OS-level signals:
+This persists through silent thinking periods (10-30+ seconds) and works regardless of permission mode (default, bypass, accept edits, plan mode).
 
-1. **Prompt regex** (primary) — match the last line against a configurable pattern, with a short debounce (`idleDelayMs`). Per-profile patterns let you target Claude Code, zsh, bash, Python REPL, etc.
-2. **Idle timeout** (fallback) — if no prompt pattern is configured, transition to "ready" after N seconds of silence.
-3. **Explicit markers** (optional) — user-defined regex for tools that can print `[AGENT READY]` or similar.
+**Blocked** detection uses ANSI-stripped text pattern matching for `☐` (permission prompts), `Enter to select` (choice UI), and `Enter to confirm` (confirmations).
 
-### UI indicators
+**Suspended** detection triggers when the window title stops containing "Claude Code" (shell has taken over after Ctrl+Z).
 
-- Colored dot or icon on terminal tabs (green = ready, yellow = running, grey = exited)
-- Fallback: prefix terminal name with indicator if API doesn't support tab icons
-- Optional status bar summary ("Terminals: 2 ready, 3 running")
-- Command palette: "Focus next ready terminal", toggle indicators, debug info
+## Install
 
-### Configuration
+### From `.vsix` file
 
-```jsonc
-// Settings (illustrative)
-"terminalReady.indicators.enabled": true,
-"terminalReady.idleDelayMs": 300,
-"terminalReady.defaultIdleTimeoutMs": 3000,
-"terminalReady.profiles": {
-  "Claude Code": {
-    "promptPattern": "\\$\\s*$",
-    "idleDelayMs": 200
-  },
-  "zsh": {
-    "promptPattern": ".*%\\s*$"
-  }
+Download the latest `.vsix` from [GitHub Releases](https://github.com/sramji/vscode-terminal-ready/releases), then:
+
+```bash
+code --install-extension terminal-ready-0.1.0.vsix
+```
+
+### Enable the proposed API
+
+This extension requires the `onDidWriteTerminalData` proposed API. Add this to your VS Code runtime arguments:
+
+1. Open command palette → "Preferences: Configure Runtime Arguments"
+2. Add to `argv.json`:
+
+```json
+{
+  "enable-proposed-api": ["terminal-ready.terminal-ready"]
 }
 ```
 
-### Architecture
+3. Restart VS Code.
 
-- **TerminalManager** — listens to terminal lifecycle and output events, maintains per-terminal state
-- **StateMachine** — pure logic: config + buffer + timestamps -> state transitions (easily testable)
-- **UIAdapter** — applies state to terminal tab icons/names
-- **ConfigResolver** — resolves per-terminal config from profile name/env
+> **Why a proposed API?** The stable shell integration API (`execution.read()`) filters out the OSC window title sequences we need for state detection, and stops streaming when Claude Code takes over the terminal. We've [verified this experimentally](docs/plans/2026-03-06-shell-integration-migration.md). The proposed API (`onDidWriteTerminalData`) is the only way to get continuous raw terminal output. This prevents marketplace publication — we distribute via GitHub Releases instead.
 
-## Scope
+## Commands
 
-**In scope (v1):**
-- VS Code extension, no server component
-- Integrated terminals only (panel and editor)
-- Visual readiness indicator; no auto-input or automation
-- Configurable heuristics
+| Command | Description |
+|---------|-------------|
+| `Terminal Ready: Focus Next Ready Terminal` | Jump to the next 🟢 terminal |
+| `Terminal Ready: Focus Next Blocked Terminal` | Jump to the next 🟠 terminal |
+| `Terminal Ready: Show Debug Info` | Show current state of all tracked terminals |
 
-**Out of scope (v1):**
-- Agent orchestration or job scheduling
-- Deep integration with specific tool APIs (detection is output-based only)
-- Cross-window or cross-machine aggregation
-- Error/attention states (e.g. nonzero exit, ERROR pattern) — candidate for v2
+## Configuration
 
-## Success criteria
+```jsonc
+// Settings
+"terminalReady.enabled": true,       // Master toggle
+"terminalReady.mode": "matched-only" // "matched-only" or "all"
+```
 
-With 3-6 Claude Code terminals open, you can:
-- See at a glance which are ready for input
-- Navigate to the next ready terminal via command or click
-- Trust the indicator most of the time (low false positives/negatives with custom promptPattern)
-- Notice no perceptible lag or UI jank
+Indicators are configurable per profile in the source code (`src/profiles.ts`). User-facing profile configuration via settings is planned for a future release.
+
+## Architecture
+
+```
+Terminal output → TerminalWatcher → ProfileMatcher → StateMachine → UIAdapter
+                    (buffer)          (fingerprint)    (OSC title)    (rename)
+```
+
+- **StateMachine** — processes raw terminal output, extracts OSC 0 title sequences for state detection
+- **ProfileMatcher** — tags terminals by matching ANSI-stripped output against profile fingerprints
+- **UIAdapter** — prefixes terminal names with state indicators via `renameWithArg` command
+- **RingBuffer** — accumulates output across chunk boundaries with ANSI stripping
+- **TerminalWatcher** — orchestrates per-terminal tracking and UI updates
+- **ConfigResolver** — provides built-in Claude Code profile and settings
+
+## Known limitations
+
+- **Proposed API required** — cannot be published to VS Code Marketplace; distributed via `.vsix`
+- **Name-based indicators** — VS Code doesn't support changing terminal tab color/icon after creation, so indicators are name prefixes rather than colored dots
+- **Rename interaction** — if you rename a terminal, the indicator prefix reappears on the next output chunk
+- **Pre-existing terminals** — terminals running Claude Code before the extension activates are detected on next output
 
 ## Development
 
-This project is developed using [superpowers](https://github.com/obra/superpowers), an agentic development framework that enforces structured brainstorming, planning, TDD, and code review phases.
+```bash
+npm install
+npm run compile
+npm test
+```
+
+Press F5 in VS Code to launch the Extension Development Host with the extension loaded.
+
+This project was developed using [superpowers](https://github.com/obra/superpowers).
 
 ## License
 

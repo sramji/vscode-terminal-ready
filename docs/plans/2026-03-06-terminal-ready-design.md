@@ -57,6 +57,7 @@ Once seen, the terminal is tagged as a Claude Code session for its lifetime.
 | to Blocked | `☐` character | Tool permission prompt (Allow/Deny) |
 | to Blocked | "Enter to select" line | Multiple choice question UI |
 | to Blocked | y/n confirmation prompt | Compact, budget confirmation, etc. |
+| to Ready | Completion summary title (`✻ … for <duration>`) | Task finished; title lacks "Claude Code" but is not a shell takeover |
 | to Suspended | Shell prompt after tagged terminal | Ctrl+Z backgrounded the session |
 | to Working (from Suspended) | Claude Code output resumes | `fg` brought it back |
 
@@ -110,7 +111,8 @@ Terminal output
     "working": { "patterns": ["spinner status lines with timing"] },
     "blocked": { "patterns": ["☐", "Enter to select", "y/n confirmation"] },
     "ready": { "onSpinnerClear": true },
-    "suspended": { "onShellPrompt": true }
+    "suspended": { "onShellPrompt": true },
+    "completion": { "titlePattern": "^✻\\s.+\\sfor\\s\\d+" }
   },
   "colors": {
     "working": "claude-pink",

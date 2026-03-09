@@ -62,6 +62,8 @@ export class StateMachine {
         } else {
           this._state = TerminalState.Working;
         }
+      } else if (this._state !== TerminalState.Exited && this.profile.completionTitlePattern?.test(title)) {
+        this._state = TerminalState.Ready;
       } else if (this._state !== TerminalState.Exited) {
         this._state = TerminalState.Suspended;
       }

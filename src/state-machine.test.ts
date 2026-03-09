@@ -8,6 +8,9 @@ const TITLE_READY = '\x1b]0;✳ Claude Code\x07';
 const TITLE_WORKING = '\x1b]0;⠂ Claude Code\x07';
 const TITLE_EXITED = '\x1b]0;\x07';
 const TITLE_SHELL = '\x1b]0;user@host: ~/projects\x07';
+const TITLE_COMPLETION = '\x1b]0;✻ Sautéed for 7m 11s\x07';       // typical multi-unit duration
+const TITLE_COMPLETION_SHORT = '\x1b]0;✻ Baked for 30s\x07';        // single-unit duration
+const TITLE_COMPLETION_COST = '\x1b]0;✻ $0.42 for 3m 20s\x07';      // cost-prefixed variant
 
 describe('StateMachine', () => {
   let sm: StateMachine;
@@ -111,6 +114,84 @@ describe('StateMachine', () => {
       sm.processOutput(BANNER_RAW);
       sm.processExit();
       expect(sm.state).toBe(TerminalState.Exited);
+    });
+  });
+
+  describe('completion title detection', () => {
+    beforeEach(() => {
+      sm.processOutput(BANNER_RAW);
+    });
+
+    it('Working → completion title → Ready (core bug case)', () => {
+      sm.processOutput(TITLE_WORKING);
+      sm.processOutput(TITLE_COMPLETION);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('Ready → completion title → stays Ready', () => {
+      sm.processOutput(TITLE_READY);
+      sm.processOutput(TITLE_COMPLETION);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('Blocked → completion title → Ready', () => {
+      sm.processOutput('☐ Allow Bash?');
+      sm.processOutput(TITLE_COMPLETION);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('Exited → completion title → stays Exited', () => {
+      sm.processExit();
+      sm.processOutput(TITLE_COMPLETION);
+      expect(sm.state).toBe(TerminalState.Exited);
+    });
+
+    it('matches typical multi-unit duration "✻ Sautéed for 7m 11s"', () => {
+      sm.processOutput(TITLE_COMPLETION);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('matches single-unit duration "✻ Baked for 30s"', () => {
+      sm.processOutput(TITLE_COMPLETION_SHORT);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('matches "✻ $0.42 for 3m 20s"', () => {
+      sm.processOutput(TITLE_COMPLETION_COST);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('does NOT match "✻" alone → Suspended', () => {
+      sm.processOutput('\x1b]0;✻\x07');
+      expect(sm.state).toBe(TerminalState.Suspended);
+    });
+
+    it('does NOT match "✻ something" without duration → Suspended', () => {
+      sm.processOutput('\x1b]0;✻ something\x07');
+      expect(sm.state).toBe(TerminalState.Suspended);
+    });
+
+    it('shell title still → Suspended', () => {
+      sm.processOutput(TITLE_SHELL);
+      expect(sm.state).toBe(TerminalState.Suspended);
+    });
+
+    it('completion title + blocked pattern in same chunk → Blocked wins', () => {
+      sm.processOutput(TITLE_COMPLETION + '☐ Allow Bash?');
+      expect(sm.state).toBe(TerminalState.Blocked);
+    });
+
+    it('shell title + completion title in same chunk → Ready', () => {
+      sm.processOutput(TITLE_SHELL + 'some output\n' + TITLE_COMPLETION);
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('profile without completionTitlePattern → completion title classified as Suspended', () => {
+      const profileNoCompletion = { ...CLAUDE_CODE_PROFILE, completionTitlePattern: undefined };
+      const smNoCompletion = new StateMachine(profileNoCompletion);
+      smNoCompletion.processOutput(BANNER_RAW);
+      smNoCompletion.processOutput(TITLE_COMPLETION);
+      expect(smNoCompletion.state).toBe(TerminalState.Suspended);
     });
   });
 });

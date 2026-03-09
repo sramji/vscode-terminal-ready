@@ -15,5 +15,6 @@ export interface ProfileConfig {
   readyPattern: RegExp;
   readyDebounceMs: number;
   shellPromptPattern?: RegExp;
+  completionTitlePattern?: RegExp;
   indicators?: Partial<Record<TerminalState, string>>;
 }

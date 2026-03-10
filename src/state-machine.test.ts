@@ -125,17 +125,24 @@ describe('StateMachine', () => {
       expect(sm.state).toBe(TerminalState.Ready);
     });
 
-    it('transitions from Blocked to Ready when empty ❯ prompt reappears', () => {
+    it('transitions from Blocked to Ready on ⎿ result indicator', () => {
       sm.processOutput('☐ Allow Bash: git status?');
       expect(sm.state).toBe(TerminalState.Blocked);
-      sm.processOutput('❯   ');
+      sm.processOutput('  ⎿  Permissions dialog dismissed');
       expect(sm.state).toBe(TerminalState.Ready);
     });
 
-    it('does NOT exit Blocked on ❯ with text after (choice/command line)', () => {
+    it('stays Blocked when ⎿ and blocked pattern appear in same chunk', () => {
       sm.processOutput('☐ Allow Bash: git status?');
-      sm.processOutput('❯ Allow once');
       expect(sm.state).toBe(TerminalState.Blocked);
+      sm.processOutput('⎿ result\n☐ Allow Bash?');
+      expect(sm.state).toBe(TerminalState.Blocked);
+    });
+
+    it('⎿ does not affect non-Blocked states', () => {
+      sm.processOutput(TITLE_WORKING);
+      sm.processOutput('⎿ tool result');
+      expect(sm.state).toBe(TerminalState.Working);
     });
   });
 

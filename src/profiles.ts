@@ -14,6 +14,9 @@ export const CLAUDE_CODE_PROFILE: ProfileConfig = {
   ],
   readyPattern: /❯\s*$/,
   readyDebounceMs: 3000,
+  unblockedPatterns: [
+    /⎿/,  // Slash command result indicator — dialog completed
+  ],
   // Matches Claude Code completion summary titles, e.g. "✻ Sautéed for 7m 11s", "✻ $0.42 for 3m 20s".
   // ✻ (U+273B) is distinct from ✳ (U+2733) used in the Ready title "✳ Claude Code".
   completionTitlePattern: /^✻\s.+\sfor\s\d+/,

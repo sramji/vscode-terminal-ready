@@ -56,6 +56,17 @@ describe('CLAUDE_CODE_PROFILE', () => {
     }
   });
 
+  it('detects unblocked patterns', () => {
+    const unblockedLines = [
+      '  ⎿  Permissions dialog dismissed',
+      '  ⎿  Kept model as opusplan (claude-sonnet-4-6)',
+    ];
+    for (const line of unblockedLines) {
+      const matches = CLAUDE_CODE_PROFILE.unblockedPatterns!.some(p => p.test(line));
+      expect(matches, `should match unblocked: "${line}"`).toBe(true);
+    }
+  });
+
   it('ready is detected by absence of working (via tick), not a pattern', () => {
     // The readyPattern exists as an optional hint but the primary mechanism
     // is the idle timeout in StateMachine. This is tested in state-machine.test.ts.

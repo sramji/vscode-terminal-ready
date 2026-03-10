@@ -79,13 +79,11 @@ export class StateMachine {
       }
     }
 
-    // Exit Blocked when empty ❯ prompt reappears (e.g. after slash command dialog dismissed)
-    if (this._state === TerminalState.Blocked && this.profile.readyPattern) {
-      for (const line of lines) {
-        if (this.profile.readyPattern.test(line)) {
-          this._state = TerminalState.Ready;
-          return;
-        }
+    // Exit Blocked when unblocked pattern matches (e.g. ⎿ slash command result)
+    if (this._state === TerminalState.Blocked && this.profile.unblockedPatterns) {
+      if (this.profile.unblockedPatterns.some(p => p.test(stripped))) {
+        this._state = TerminalState.Ready;
+        return;
       }
     }
   }

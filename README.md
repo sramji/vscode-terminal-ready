@@ -25,12 +25,21 @@ The extension auto-detects Claude Code terminals and prefixes their names with s
 State detection uses **window title (OSC 0) escape sequences** — the most reliable signal available. Claude Code sets its window title to reflect state:
 
 - `✳ Claude Code` → Ready
-- `⠂ Claude Code` (braille spinner) → Working
+- `⠂ Claude Code` (braille spinner prefix) → Working
 - Empty → Exited
 
 This persists through silent thinking periods (10-30+ seconds) and works regardless of permission mode (default, bypass, accept edits, plan mode).
 
-**Blocked** detection uses ANSI-stripped text pattern matching for `☐` (permission prompts), `Enter to select` (choice UI), and `Enter to confirm` (confirmations).
+**Blocked** detection uses ANSI-stripped text pattern matching against each output line:
+
+| Pattern | UI element |
+|---------|-----------|
+| `^\s*☐` | Permission prompt (`☐ Allow Bash: git status?`) |
+| `Enter to select\s*·` | Choice UI footer (interpunct required to avoid prose false positives) |
+| `Enter to confirm` | Confirmation prompt |
+| `Esc to cancel\s*·` | Numbered choice UI footer (`❯ 1. Yes / 2. No`) |
+
+**Unblocked** detection exits Blocked → Ready when a pattern matches the full stripped output chunk. The `⎿` character (U+23BF) is used by Claude Code as a result indicator after every slash command dialog completion (`⎿  Permissions dialog dismissed`, `⎿  Kept model as ...`). This is the reliable signal for slash command dismissal, since Claude Code does not re-send the window title after dialog close.
 
 **Suspended** detection triggers when the window title stops containing "Claude Code" (shell has taken over after Ctrl+Z). Exception: completion summary titles (e.g. `✻ Sautéed for 7m 11s`) are treated as Ready, not Suspended.
 
@@ -127,6 +136,32 @@ Terminal output → TerminalWatcher → ProfileMatcher → StateMachine → UIAd
 - **TerminalWatcher** — orchestrates per-terminal tracking and UI updates
 - **ConfigResolver** — provides built-in Claude Code profile and settings
 
+### ProfileConfig — porting to other tools
+
+The detection logic is fully driven by `ProfileConfig` (`src/types.ts`). To support a different AI coding tool, define a new profile:
+
+```typescript
+interface ProfileConfig {
+  name: string;                        // Display name
+  fingerprint: string;                 // Substring in startup banner (ANSI-stripped)
+  workingPatterns: RegExp[];           // Lines that indicate active work (e.g. "esc to interrupt")
+  blockedPatterns: RegExp[];           // Lines that indicate blocked/waiting for input
+  unblockedPatterns?: RegExp[];        // Whole-chunk patterns that exit Blocked → Ready
+  readyPattern: RegExp;                // (legacy) per-line ready hint; prefer OSC title + unblockedPatterns
+  readyDebounceMs: number;             // Idle timeout before emitting Ready (ms)
+  completionTitlePattern?: RegExp;     // OSC title pattern treated as Ready (e.g. completion summary)
+  indicators?: Partial<Record<TerminalState, string>>; // Emoji/text prefix per state
+}
+```
+
+**Key implementation notes for porters:**
+
+1. **ANSI stripping** — `\x1b[1C` (cursor forward 1) must become a space, not be deleted, or character patterns split across cursor movements will fail to match.
+2. **OSC title is primary** — use it for Working/Ready/Suspended/Exited. Text patterns are secondary and should be structurally precise (anchored, require surrounding punctuation) to avoid false positives on prose output.
+3. **`unblockedPatterns` tests the whole stripped chunk** — not per-line. This avoids the cursor-down (`\x1b[1B`) vs newline issue: after stripping, visual lines separated by cursor-down collapse into one string. Per-line splitting only works for `\n`-delimited output.
+4. **`blockedPatterns` run before `unblockedPatterns`** — if both match in the same chunk, Blocked wins.
+5. **Rename-based indicators** — VS Code's `terminal.iconPath` and `color` are read-only after creation. Indicators are name prefixes applied via `workbench.action.terminal.renameWithArg` on every output chunk (so user renames are overwritten on next output, which is intentional).
+
 ## Known limitations
 
 - **Proposed API required** — cannot be published to VS Code Marketplace; distributed via `.vsix`
@@ -134,9 +169,6 @@ Terminal output → TerminalWatcher → ProfileMatcher → StateMachine → UIAd
 - **Rename interaction** — if you rename a terminal, the indicator prefix reappears on the next output chunk
 - **Pre-existing terminals** — terminals running Claude Code before the extension activates are detected on next output
 
-## To do
-
-- **Fix blocked false positive on agent-written text** — the blocked patterns (`Enter to select`, `Enter to confirm`, `☐`) are matched against all terminal output, including Claude Code's own prose responses. If Claude writes those strings as part of an explanation or generated script, the indicator incorrectly flips to 🟠 Blocked. Fix: tighten the patterns so they only match lines that structurally resemble the permission/choice UI (e.g. anchor to start-of-line, require accompanying UI chrome), rather than grepping arbitrary content.
 
 ## Development
 

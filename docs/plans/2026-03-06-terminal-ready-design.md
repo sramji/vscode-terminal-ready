@@ -54,9 +54,10 @@ Once seen, the terminal is tagged as a Claude Code session for its lifetime.
 |-----------|---------|-------|
 | to Working | Spinner status line with timing info | Updates frequently while active |
 | to Ready | Spinner line clears, prompt present without spinner | ~200ms debounce to avoid flicker |
-| to Blocked | `☐` character | Tool permission prompt (Allow/Deny) |
-| to Blocked | "Enter to select" line | Multiple choice question UI |
-| to Blocked | y/n confirmation prompt | Compact, budget confirmation, etc. |
+| to Blocked | `☐` at line start | Tool permission prompt (Allow/Deny) |
+| to Blocked | "Enter to select ·" line | Multiple choice question UI (· required to avoid prose match) |
+| to Blocked | "Enter to confirm" | Compact, budget confirmation, etc. |
+| to Blocked | "Esc to cancel" | Numbered choice UI footer (`❯ 1. Yes / 2. No` format) |
 | to Ready | Completion summary title (`✻ … for <duration>`) | Task finished; title lacks "Claude Code" but is not a shell takeover |
 | to Suspended | Shell prompt after tagged terminal | Ctrl+Z backgrounded the session |
 | to Working (from Suspended) | Claude Code output resumes | `fg` brought it back |
@@ -109,7 +110,7 @@ Terminal output
   "fingerprint": "╭─── Claude Code v",
   "states": {
     "working": { "patterns": ["spinner status lines with timing"] },
-    "blocked": { "patterns": ["☐", "Enter to select", "y/n confirmation"] },
+    "blocked": { "patterns": ["^\\s*☐", "Enter to select\\s*·", "Enter to confirm", "Esc to cancel"] },
     "ready": { "onSpinnerClear": true },
     "suspended": { "onShellPrompt": true },
     "completion": { "titlePattern": "^✻\\s.+\\sfor\\s\\d+" }

@@ -16,5 +16,6 @@ export interface ProfileConfig {
   readyDebounceMs: number;
   shellPromptPattern?: RegExp;
   completionTitlePattern?: RegExp;
+  unblockedPatterns?: RegExp[];  // Patterns that exit Blocked → Ready (e.g. ⎿ result indicator)
   indicators?: Partial<Record<TerminalState, string>>;
 }

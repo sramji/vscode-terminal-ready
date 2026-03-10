@@ -71,10 +71,21 @@ export class StateMachine {
 
     // Secondary: blocked patterns on stripped text
     const stripped = stripAnsi(chunk);
-    for (const line of stripped.split('\n')) {
+    const lines = stripped.split('\n');
+    for (const line of lines) {
       if (this.profile.blockedPatterns.some(p => p.test(line))) {
         this._state = TerminalState.Blocked;
         return;
+      }
+    }
+
+    // Exit Blocked when empty ❯ prompt reappears (e.g. after slash command dialog dismissed)
+    if (this._state === TerminalState.Blocked && this.profile.readyPattern) {
+      for (const line of lines) {
+        if (this.profile.readyPattern.test(line)) {
+          this._state = TerminalState.Ready;
+          return;
+        }
       }
     }
   }

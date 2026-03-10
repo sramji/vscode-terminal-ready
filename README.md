@@ -30,7 +30,7 @@ State detection uses **window title (OSC 0) escape sequences** — the most reli
 
 This persists through silent thinking periods (10-30+ seconds) and works regardless of permission mode (default, bypass, accept edits, plan mode).
 
-**Blocked** detection uses ANSI-stripped text pattern matching for `☐` (permission prompts), `Enter to select` (choice UI), and `Enter to confirm` (confirmations).
+**Blocked** detection uses ANSI-stripped text pattern matching: `☐` at line start (permission prompts), `Enter to select ·` (choice UI), `Enter to confirm` (confirmations), and `Esc to cancel` (numbered choice UI footer).
 
 **Suspended** detection triggers when the window title stops containing "Claude Code" (shell has taken over after Ctrl+Z). Exception: completion summary titles (e.g. `✻ Sautéed for 7m 11s`) are treated as Ready, not Suspended.
 
@@ -134,9 +134,6 @@ Terminal output → TerminalWatcher → ProfileMatcher → StateMachine → UIAd
 - **Rename interaction** — if you rename a terminal, the indicator prefix reappears on the next output chunk
 - **Pre-existing terminals** — terminals running Claude Code before the extension activates are detected on next output
 
-## To do
-
-- **Fix blocked false positive on agent-written text** — the blocked patterns (`Enter to select`, `Enter to confirm`, `☐`) are matched against all terminal output, including Claude Code's own prose responses. If Claude writes those strings as part of an explanation or generated script, the indicator incorrectly flips to 🟠 Blocked. Fix: tighten the patterns so they only match lines that structurally resemble the permission/choice UI (e.g. anchor to start-of-line, require accompanying UI chrome), rather than grepping arbitrary content.
 
 ## Development
 

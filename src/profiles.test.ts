@@ -37,10 +37,22 @@ describe('CLAUDE_CODE_PROFILE', () => {
       'Enter to select · ↑/↓ to navigate · Esc to cancel',
       'Enter to select · Tab/Arrow keys to navigate · Esc to cancel',
       'Enter to confirm',
+      ' Esc to cancel · Tab to amend',            // numbered choice UI footer (· after)
     ];
     for (const line of blockedLines) {
       const matches = CLAUDE_CODE_PROFILE.blockedPatterns.some(p => p.test(line));
       expect(matches, `should match blocked: "${line}"`).toBe(true);
+    }
+  });
+
+  it('does not match prose as blocked', () => {
+    const nonBlockedLines = [
+      'The ☐ character is used for checkboxes',  // ☐ mid-line, not at start
+      'Press Enter to select an option',          // no · after "Enter to select"
+    ];
+    for (const line of nonBlockedLines) {
+      const matches = CLAUDE_CODE_PROFILE.blockedPatterns.some(p => p.test(line));
+      expect(matches, `should NOT match blocked: "${line}"`).toBe(false);
     }
   });
 

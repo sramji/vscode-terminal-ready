@@ -107,6 +107,36 @@ describe('StateMachine', () => {
       sm.processOutput(TITLE_WORKING);
       expect(sm.state).toBe(TerminalState.Working);
     });
+
+    it('transitions to Blocked on numbered choice footer', () => {
+      sm.processOutput(' Esc to cancel · Tab to amend');
+      expect(sm.state).toBe(TerminalState.Blocked);
+    });
+
+    it('does NOT transition to Blocked when ☐ appears mid-line in prose', () => {
+      sm.processOutput(TITLE_READY);
+      sm.processOutput('The ☐ character is used for checkboxes');
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('does NOT transition to Blocked when "Enter to select" appears without interpunct', () => {
+      sm.processOutput(TITLE_READY);
+      sm.processOutput('Press Enter to select an option');
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('transitions from Blocked to Ready when empty ❯ prompt reappears', () => {
+      sm.processOutput('☐ Allow Bash: git status?');
+      expect(sm.state).toBe(TerminalState.Blocked);
+      sm.processOutput('❯   ');
+      expect(sm.state).toBe(TerminalState.Ready);
+    });
+
+    it('does NOT exit Blocked on ❯ with text after (choice/command line)', () => {
+      sm.processOutput('☐ Allow Bash: git status?');
+      sm.processOutput('❯ Allow once');
+      expect(sm.state).toBe(TerminalState.Blocked);
+    });
   });
 
   describe('exited state', () => {
